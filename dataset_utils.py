@@ -11,19 +11,20 @@ from keras.optimizers import Adam
 class DataSet:
 
     def __init__(self):
+        # TODO: убрать лимит на train
         self.__ds, self.__ds_info = tfds.load(s.DATASET, split=['train[:1000]', 'test'], with_info=True)
         self.__train = self.__ds[0]
         self.__test = self.__ds[1]
 
+        # в numpy для разделения входа и выхода
         train_numpy = np.vstack(tfds.as_numpy(self.__train))
         test_numpy = np.vstack(tfds.as_numpy(self.__test))
-
         self.__train_image = np.array(list(map(lambda x: x[0]['image'], train_numpy)))
         self.__train_label = np.array(list(map(lambda x: x[0]['label'], train_numpy)))
-
         self.__test_image = np.array(list(map(lambda x: x[0]['image'], test_numpy)))
         self.__test_label = np.array(list(map(lambda x: x[0]['label'], test_numpy)))
 
+        # корректная разбивка выхода для работы модели
         self.__train_label = keras.utils.to_categorical(self.__train_label, s.CLASSES_NUMBER)
         self.__test_label = keras.utils.to_categorical(self.__test_label, s.CLASSES_NUMBER)
 
@@ -85,7 +86,7 @@ class DataSet:
 
     def __train_model(self):
         self.__model.compile(loss='binary_crossentropy',
-                             optimizer=Adam(learning_rate=0.00024),
+                             optimizer=Adam(learning_rate=s.LEARNING_RATE),
                              metrics=['binary_accuracy'])
 
         stop = keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, patience=6)
