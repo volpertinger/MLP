@@ -1,11 +1,7 @@
-from tensorflow_datasets.core import dataset_info
-
 from dataset_utils import DataSet
-import tensorflow_datasets as tfds
-import matplotlib
+
+from processing_utils import start_test_input
 
 if __name__ == '__main__':
     dataset = DataSet()
-    # dataset.show_benchmark()
-    dataset.show_examples()
-    print("end")
+    start_test_input(dataset)
