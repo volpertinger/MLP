@@ -12,8 +12,7 @@ from keras.optimizers import Adam
 class DataSet:
 
     def __init__(self):
-        # TODO: убрать лимит на train
-        self.__ds, self.__ds_info = tfds.load(s.DATASET, split=['train[:1000]', 'test'], with_info=True)
+        self.__ds, self.__ds_info = tfds.load(s.DATASET, split=['train', 'test'], with_info=True)
         self.__train = self.__ds[0]
         self.__test = self.__ds[1]
 
