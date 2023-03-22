@@ -1,6 +1,7 @@
 import tensorflow_datasets as tfds
 import settings as s
 import numpy as np
+import matplotlib.pyplot as plt
 from tensorflow_datasets.core import visualization
 from tensorflow import keras
 from keras import layers
@@ -45,6 +46,7 @@ class DataSet:
             layers.Dense(128),
             layers.Dense(s.CLASSES_NUMBER, activation='sigmoid')
         ])
+        self.__model.summary()
 
         self.__trained = False
         self.__epochs = s.MAX_EPOCHS
@@ -91,8 +93,15 @@ class DataSet:
 
         stop = keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, patience=6)
 
-        self.__model.fit(self.__train_image, self.__train_label, batch_size=s.BATCH_SIZE, verbose=1,
-                         epochs=self.__epochs, validation_split=0.2, callbacks=[stop])
+        history = self.__model.fit(self.__train_image,
+                                   self.__train_label,
+                                   batch_size=s.BATCH_SIZE,
+                                   verbose=1,
+                                   epochs=self.__epochs,
+                                   validation_split=0.2,
+                                   callbacks=[stop],
+                                   validation_data=(self.__test_image, self.__test_label))
+        self.__plot_history(history)
 
         self.__after_train_processing()
 
@@ -115,6 +124,29 @@ class DataSet:
         if index >= len(self.__prediction) or index < 0:
             print(f"[__get_predicted_value] index {index} is invalid")
         return self.__get_predicted_class_index(self.__prediction[index])
+
+    def __plot_history(self, history):
+        acc = history.history['binary_accuracy']
+        val_acc = history.history['val_binary_accuracy']
+
+        loss = history.history['loss']
+        val_loss = history.history['val_loss']
+
+        epochs_range = range(self.__epochs)
+
+        plt.figure(figsize=(8, 8))
+        plt.subplot(1, 2, 1)
+        plt.plot(epochs_range, acc, label='Training Accuracy')
+        plt.plot(epochs_range, val_acc, label='Validation Accuracy')
+        plt.legend(loc='lower right')
+        plt.title('Training and Validation Accuracy')
+
+        plt.subplot(1, 2, 2)
+        plt.plot(epochs_range, loss, label='Training Loss')
+        plt.plot(epochs_range, val_loss, label='Validation Loss')
+        plt.legend(loc='upper right')
+        plt.title('Training and Validation Loss')
+        plt.show()
 
     # ------------------------------------------------------------------------------------------------------------------
     # Public
@@ -154,12 +186,6 @@ class DataSet:
         predicted_value = self.__get_predicted_value(index)
         print(f"[predict] predicted value is {predicted_value}")
         self.__show_image(index)
-
-    def plot_accuracy(self):
-        pass
-
-    def plot_entropy_loss(self):
-        pass
 
     def train(self):
         if self.__trained:
