@@ -95,7 +95,8 @@ class DataSet:
 
         self.__after_train_processing()
 
-    def __get_predicted_class_index(self, arr):
+    @staticmethod
+    def __get_predicted_class_index(arr):
         class_index = 0
         element_prediction = 0
         current_index = 0
