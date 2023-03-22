@@ -90,15 +90,12 @@ class DataSet:
                              optimizer=Adam(learning_rate=s.LEARNING_RATE),
                              metrics=['binary_accuracy'])
 
-        stop = keras.callbacks.EarlyStopping(monitor='val_loss', verbose=1, patience=6)
-
         history = self.__model.fit(self.__train_image,
                                    self.__train_label,
                                    batch_size=s.BATCH_SIZE,
                                    verbose=1,
                                    epochs=self.__epochs,
                                    validation_split=0.2,
-                                   callbacks=[stop],
                                    validation_data=(self.__test_image, self.__test_label))
         self.__plot_history(history)
 
