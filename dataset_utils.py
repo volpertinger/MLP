@@ -13,10 +13,16 @@ class DataSet:
         self.__ds, self.__ds_info = tfds.load(s.DATASET, split=['train', 'test'], with_info=True)
         self.__train = self.__ds[0]
         self.__test = self.__ds[1]
+        self.__trained = True
 
     # ------------------------------------------------------------------------------------------------------------------
     # Private
     # ------------------------------------------------------------------------------------------------------------------
+    def __show_image(self, index):
+        visualization.image_visualizer.ImageGridVisualizer().show(self.__test.skip(index).take(1),
+                                                                  self.__ds_info,
+                                                                  rows=1,
+                                                                  cols=1)
 
     # ------------------------------------------------------------------------------------------------------------------
     # Public
@@ -52,12 +58,6 @@ class DataSet:
     def show_examples(self):
         tfds.show_examples(self.__train, self.__ds_info)
 
-    def show_image(self, index):
-        max_index = len(self.__test) - 1
-        if index < 0 or index > max_index:
-            print(f"[show_image] wrong index {index}. Index must be from 0 to {max_index}")
-            return
-        visualization.image_visualizer.ImageGridVisualizer().show(self.__test.skip(index).take(1),
-                                                                  self.__ds_info,
-                                                                  rows=1,
-                                                                  cols=1)
+    def predict(self, index):
+        print(f"[predict] predicted value is {index}")
+        self.__show_image(index)
