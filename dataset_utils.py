@@ -1,6 +1,10 @@
 import tensorflow_datasets as tfds
 import tensorflow as tf
+from tensorflow_datasets.core import visualization
+from tensorflow_datasets.core.visualization import Visualizer
+
 import settings as s
+import matplotlib.pyplot as plt
 
 
 class DataSet:
@@ -42,5 +46,18 @@ class DataSet:
     def show_benchmark(self):
         tfds.benchmark(self.__ds, batch_size=s.BATCH_SIZE)
 
+    def get_test_length(self):
+        return len(self.__test)
+
     def show_examples(self):
         tfds.show_examples(self.__train, self.__ds_info)
+
+    def show_image(self, index):
+        max_index = len(self.__test) - 1
+        if index < 0 or index > max_index:
+            print(f"[show_image] wrong index {index}. Index must be from 0 to {max_index}")
+            return
+        visualization.image_visualizer.ImageGridVisualizer().show(self.__test.skip(index).take(1),
+                                                                  self.__ds_info,
+                                                                  rows=1,
+                                                                  cols=1)
