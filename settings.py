@@ -4,5 +4,6 @@ LAYERS_NUMBER = 3
 NEURON_NUMBER = 4
 ACTIVATION = "elu"
 LOSS_FUNCTION = "adam"
-MAX_EPOCHS = 1
+MAX_EPOCHS = 3
 SAVE_FILENAME = "model_saves/horses_or_humans"
+CLASSES_NUMBER = 2

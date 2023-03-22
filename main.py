@@ -3,5 +3,5 @@ from processing_utils import start_test_input
 
 if __name__ == '__main__':
     dataset = DataSet()
-    dataset.train_model()
+    dataset.train()
     start_test_input(dataset)
