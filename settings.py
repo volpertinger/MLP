@@ -7,3 +7,4 @@ LOSS_FUNCTION = "adam"
 MAX_EPOCHS = 3
 SAVE_FILENAME = "model_saves/horses_or_humans"
 CLASSES_NUMBER = 2
+LEARNING_RATE = 0.00024
