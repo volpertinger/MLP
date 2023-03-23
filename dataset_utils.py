@@ -11,6 +11,7 @@ from keras.optimizers import Adam
 
 
 # TODO: spare MLP
+# TODO: отдельный сейв на spare
 class MLP:
 
     def __init__(self, dataset: string, epochs: int, learning_rate: float, batch_size: int, main_save_path: string,
@@ -28,7 +29,7 @@ class MLP:
         self.__test_label = np.array(list(map(lambda x: x[0]['label'], test_numpy)))
 
         # корректная разбивка выхода для работы модели
-        labels_number = np.unique(self.__train_label)
+        labels_number = len(np.unique(self.__train_label))
         self.__train_label = keras.utils.to_categorical(self.__train_label, labels_number)
         self.__test_label = keras.utils.to_categorical(self.__test_label, labels_number)
 
