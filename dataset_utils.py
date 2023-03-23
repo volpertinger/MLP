@@ -93,9 +93,13 @@ class MLP:
         print("[__after_train_processing] started")
         self.__main_prediction = self.__main_model.predict(self.__test_image)
         if not self.__trained:
-            print("[__after_train_processing] save started")
+            print("[__after_train_processing] main save started")
             self.__main_model.save_weights(filepath=self.__main_save_filename)
-            print("[__after_train_processing] save ended")
+            print("[__after_train_processing] main save ended")
+            if self.__spare_model is not None:
+                print("[__after_train_processing] spare save started")
+                self.__spare_model.save_weights(filepath=self.__spare_save_filename)
+                print("[__after_train_processing] spare save ended")
         self.__is_trained = True
         print("[__after_train_processing] finished")
 
