@@ -32,6 +32,8 @@ class MLP:
         self.__train_label = keras.utils.to_categorical(self.__train_label, labels_number)
         self.__test_label = keras.utils.to_categorical(self.__test_label, labels_number)
 
+        # main model
+        self.__main_save_filename = main_save_path
         self.__main_model = Sequential([
             layers.Rescaling(1. / 255, input_shape=self.__train_image[0].shape),
             layers.Conv2D(16, 3, padding='same', activation='relu'),
@@ -44,13 +46,30 @@ class MLP:
             layers.Dense(128),
             layers.Dense(labels_number, activation='sigmoid')
         ])
-        self.__spare_model = None
+
+        # spare model
+        if use_spare and not (spare_save_path is None):
+            self.__spare_save_filename = spare_save_path
+            self.__spare_model = Sequential([
+                layers.Rescaling(1. / 255, input_shape=self.__train_image[0].shape),
+                layers.Conv2D(16, 3, padding='same', activation='relu'),
+                layers.MaxPooling2D(),
+                layers.Conv2D(32, 3, padding='same', activation='relu'),
+                layers.MaxPooling2D(),
+                layers.Conv2D(64, 3, padding='same', activation='relu'),
+                layers.MaxPooling2D(),
+                layers.Flatten(),
+                layers.Dense(128),
+                layers.Dense(labels_number, activation='sigmoid')
+            ])
+        else:
+            self.__spare_save_filename = None
+            self.__spare_model = None
 
         self.__trained = False
         self.__epochs = epochs
         self.__learning_rate = learning_rate
         self.__batch_size = batch_size
-        self.__save_filename = main_save_path
         self.__with_info = with_info
 
         self.__main_prediction = None
@@ -74,7 +93,7 @@ class MLP:
         self.__main_prediction = self.__main_model.predict(self.__test_image)
         if not self.__trained:
             print("[__after_train_processing] save started")
-            self.__main_model.save_weights(filepath=self.__save_filename)
+            self.__main_model.save_weights(filepath=self.__main_save_filename)
             print("[__after_train_processing] save ended")
         self.__is_trained = True
         print("[__after_train_processing] finished")
@@ -82,7 +101,7 @@ class MLP:
     def __load_weights(self):
         print("[__load_weights] try to load weights")
         try:
-            if self.__main_model.load_weights(filepath=self.__save_filename) is not None:
+            if self.__main_model.load_weights(filepath=self.__main_save_filename) is not None:
                 print("[__load_weights] loaded successfully")
                 self.__trained = True
                 self.__after_train_processing()
