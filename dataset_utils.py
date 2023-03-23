@@ -1,5 +1,6 @@
+import string
+
 import tensorflow_datasets as tfds
-import settings as s
 import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow_datasets.core import visualization
@@ -9,10 +10,12 @@ from keras.models import Sequential
 from keras.optimizers import Adam
 
 
-class DataSet:
+# TODO: spare MLP
+class MLP:
 
-    def __init__(self):
-        self.__ds, self.__ds_info = tfds.load(s.DATASET, split=['train', 'test'], with_info=True)
+    def __init__(self, dataset: string, epochs: int, learning_rate: float, batch_size: int, main_save_path: string,
+                 with_info: bool = True, use_spare: bool = False, spare_save_path: string = None):
+        self.__ds, self.__ds_info = tfds.load(dataset, split=['train', 'test'], with_info=True)
         self.__train = self.__ds[0]
         self.__test = self.__ds[1]
 
@@ -25,15 +28,11 @@ class DataSet:
         self.__test_label = np.array(list(map(lambda x: x[0]['label'], test_numpy)))
 
         # корректная разбивка выхода для работы модели
-        self.__train_label = keras.utils.to_categorical(self.__train_label, s.CLASSES_NUMBER)
-        self.__test_label = keras.utils.to_categorical(self.__test_label, s.CLASSES_NUMBER)
+        labels_number = np.unique(self.__train_label)
+        self.__train_label = keras.utils.to_categorical(self.__train_label, labels_number)
+        self.__test_label = keras.utils.to_categorical(self.__test_label, labels_number)
 
-        self.__model = Sequential([
-            layers.Dense(32, activation='relu', input_shape=self.__train_image[0].shape),
-            layers.Flatten(),
-            layers.Dense(1, activation='sigmoid', input_shape=self.__train_label.shape)
-        ])
-        self.__model = Sequential([
+        self.__main_model = Sequential([
             layers.Rescaling(1. / 255, input_shape=self.__train_image[0].shape),
             layers.Conv2D(16, 3, padding='same', activation='relu'),
             layers.MaxPooling2D(),
@@ -43,16 +42,23 @@ class DataSet:
             layers.MaxPooling2D(),
             layers.Flatten(),
             layers.Dense(128),
-            layers.Dense(s.CLASSES_NUMBER, activation='sigmoid')
+            layers.Dense(labels_number, activation='sigmoid')
         ])
-        self.__model.summary()
+        self.__spare_model = None
 
         self.__trained = False
-        self.__epochs = s.MAX_EPOCHS
-        self.__save_filename = s.SAVE_FILENAME
+        self.__epochs = epochs
+        self.__learning_rate = learning_rate
+        self.__batch_size = batch_size
+        self.__save_filename = main_save_path
+        self.__with_info = with_info
 
-        self.__prediction = None
+        self.__main_prediction = None
         self.__load_weights()
+
+        self.__print_models_summary()
+        self.__show_benchmark()
+        self.__show_examples()
 
     # ------------------------------------------------------------------------------------------------------------------
     # Private
@@ -65,10 +71,10 @@ class DataSet:
 
     def __after_train_processing(self):
         print("[__after_train_processing] started")
-        self.__prediction = self.__model.predict(self.__test_image)
+        self.__main_prediction = self.__main_model.predict(self.__test_image)
         if not self.__trained:
             print("[__after_train_processing] save started")
-            self.__model.save_weights(filepath=self.__save_filename)
+            self.__main_model.save_weights(filepath=self.__save_filename)
             print("[__after_train_processing] save ended")
         self.__is_trained = True
         print("[__after_train_processing] finished")
@@ -76,27 +82,27 @@ class DataSet:
     def __load_weights(self):
         print("[__load_weights] try to load weights")
         try:
-            if self.__model.load_weights(filepath=self.__save_filename) is not None:
+            if self.__main_model.load_weights(filepath=self.__save_filename) is not None:
                 print("[__load_weights] loaded successfully")
                 self.__trained = True
                 self.__after_train_processing()
             print("[__load_weights] loaded failed")
-        except:
+        except Exception:
             print("[__load_weights] loaded failed")
             return
 
     def __train_model(self):
-        self.__model.compile(loss='binary_crossentropy',
-                             optimizer=Adam(learning_rate=s.LEARNING_RATE),
-                             metrics=['binary_accuracy'])
+        self.__main_model.compile(loss='binary_crossentropy',
+                                  optimizer=Adam(learning_rate=self.__learning_rate),
+                                  metrics=['binary_accuracy'])
 
-        history = self.__model.fit(self.__train_image,
-                                   self.__train_label,
-                                   batch_size=s.BATCH_SIZE,
-                                   verbose=1,
-                                   epochs=self.__epochs,
-                                   validation_split=0.2,
-                                   validation_data=(self.__test_image, self.__test_label))
+        history = self.__main_model.fit(self.__train_image,
+                                        self.__train_label,
+                                        batch_size=self.__batch_size,
+                                        verbose=1,
+                                        epochs=self.__epochs,
+                                        validation_split=0.2,
+                                        validation_data=(self.__test_image, self.__test_label))
         self.__plot_history(history)
 
         self.__after_train_processing()
@@ -114,22 +120,24 @@ class DataSet:
         return class_index
 
     def __get_predicted_value(self, index):
-        if self.__prediction is None:
+        if self.__main_prediction is None:
             print("[__get_predicted_value] __prediction is None")
             return
-        if index >= len(self.__prediction) or index < 0:
+        if index >= len(self.__main_prediction) or index < 0:
             print(f"[__get_predicted_value] index {index} is invalid")
-        return self.__get_predicted_class_index(self.__prediction[index])
+        return self.__get_predicted_class_index(self.__main_prediction[index])
 
     def __plot_history(self, history):
+        if not self.__with_info:
+            return
+        print("[__plot_history] get values")
         acc = history.history['binary_accuracy']
         val_acc = history.history['val_binary_accuracy']
-
         loss = history.history['loss']
         val_loss = history.history['val_loss']
-
         epochs_range = range(self.__epochs)
 
+        print("[__plot_history] plot accuracy")
         plt.figure(figsize=(8, 8))
         plt.subplot(1, 2, 1)
         plt.plot(epochs_range, acc, label='Training Accuracy')
@@ -137,12 +145,34 @@ class DataSet:
         plt.legend(loc='lower right')
         plt.title('Training and Validation Accuracy')
 
+        print("[__plot_history] plot loss")
         plt.subplot(1, 2, 2)
         plt.plot(epochs_range, loss, label='Training Loss')
         plt.plot(epochs_range, val_loss, label='Validation Loss')
         plt.legend(loc='upper right')
         plt.title('Training and Validation Loss')
         plt.show()
+
+    def __print_models_summary(self):
+        if not self.__with_info:
+            return
+        print("[__print_models_summary] main model")
+        self.__main_model.summary()
+        if self.__spare_model is None:
+            return
+        print("[__print_models_summary] spare model")
+        self.__spare_model.summary()
+
+    def __show_benchmark(self):
+        if not self.__with_info:
+            return
+        print(f"[__show_benchmark] dataset benchmark started with batch_size = {self.__batch_size}")
+        tfds.benchmark(self.__ds, batch_size=self.__batch_size)
+
+    def __show_examples(self):
+        if not self.__with_info:
+            return
+        tfds.show_examples(self.__train, self.__ds_info)
 
     # ------------------------------------------------------------------------------------------------------------------
     # Public
@@ -169,14 +199,8 @@ class DataSet:
     def get_data_test_list(self):
         return list(self.__test)
 
-    def show_benchmark(self):
-        tfds.benchmark(self.__ds, batch_size=s.BATCH_SIZE)
-
     def get_test_length(self):
         return len(self.__test)
-
-    def show_examples(self):
-        tfds.show_examples(self.__train, self.__ds_info)
 
     def predict(self, index):
         predicted_value = self.__get_predicted_value(index)

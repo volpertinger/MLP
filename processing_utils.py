@@ -1,7 +1,7 @@
-from dataset_utils import DataSet
+from dataset_utils import MLP
 
 
-def start_test_input(dataset: DataSet):
+def start_test_input(dataset: MLP):
     while True:
         inp = input(f"\nType index for test from 0 to {dataset.get_test_length() - 1}\n")
         if inp == "":
