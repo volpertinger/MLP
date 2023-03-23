@@ -6,18 +6,18 @@ LAYERS_NUMBER = 3
 NEURON_NUMBER = 4
 ACTIVATION = "elu"
 LOSS_FUNCTION = "adam"
-MAX_EPOCHS = 10
+MAX_EPOCHS = 30
 LEARNING_RATE = 0.00024
+IMAGE_DIMENSION = 3
 
 # ----------------------------------------------------------------------------------------------------------------------
 # Dataset
 # ----------------------------------------------------------------------------------------------------------------------
 DATASET = "horses_or_humans"
 __DIRECTORY_PREFIX = "saves"
-SAVE_FILENAME_MAIN = f"{__DIRECTORY_PREFIX}/{DATASET}"
+SAVE_FILENAME_MAIN = f"{__DIRECTORY_PREFIX}_main/{DATASET}"
 USE_SPARE = True
 SAVE_FILENAME_SPARE = f"{__DIRECTORY_PREFIX}_spare/{DATASET}"
-
 # ----------------------------------------------------------------------------------------------------------------------
 # System
 # ----------------------------------------------------------------------------------------------------------------------
