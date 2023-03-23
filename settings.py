@@ -13,9 +13,10 @@ LEARNING_RATE = 0.00024
 # Dataset
 # ----------------------------------------------------------------------------------------------------------------------
 DATASET = "horses_or_humans"
-SAVE_FILENAME_MAIN = f"model_saves/{DATASET}"
+__DIRECTORY_PREFIX = "saves"
+SAVE_FILENAME_MAIN = f"{__DIRECTORY_PREFIX}/{DATASET}"
 USE_SPARE = True
-SAVE_FILENAME_SPARE = f"model_saves_spare/{DATASET}"
+SAVE_FILENAME_SPARE = f"{__DIRECTORY_PREFIX}_spare/{DATASET}"
 
 # ----------------------------------------------------------------------------------------------------------------------
 # System
