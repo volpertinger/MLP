@@ -110,7 +110,7 @@ class MLP:
             print("[__load_weights] loaded failed")
             return
 
-    def __train_model(self):
+    def __train_main(self):
         self.__main_model.compile(loss='binary_crossentropy',
                                   optimizer=Adam(learning_rate=self.__learning_rate),
                                   metrics=['binary_accuracy'])
@@ -125,6 +125,26 @@ class MLP:
         self.__plot_history(history.history['binary_accuracy'], history.history['val_binary_accuracy'],
                             history.history['loss'], history.history['val_loss'])
 
+    def __train_spare(self):
+        if self.__spare_model is None:
+            return
+        self.__spare_model.compile(loss='binary_crossentropy',
+                                   optimizer=Adam(learning_rate=self.__learning_rate),
+                                   metrics=['binary_accuracy'])
+
+        history = self.__spare_model.fit(self.__train_image,
+                                         self.__train_label,
+                                         batch_size=self.__batch_size,
+                                         verbose=1,
+                                         epochs=self.__epochs,
+                                         validation_split=0.2,
+                                         validation_data=(self.__test_image, self.__test_label))
+        self.__plot_history(history.history['binary_accuracy'], history.history['val_binary_accuracy'],
+                            history.history['loss'], history.history['val_loss'])
+
+    def __train_model(self):
+        self.__train_main()
+        self.__train_spare()
         self.__after_train_processing()
 
     @staticmethod
