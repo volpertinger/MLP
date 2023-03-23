@@ -1,6 +1,6 @@
 import os
-import settings as s
-from dataset_utils import MLP
+import UserSettings as s
+from MLP.MLP import MLP
 from processing_utils import start_test_input
 
 if __name__ == '__main__':
