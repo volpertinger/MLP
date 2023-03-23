@@ -122,7 +122,8 @@ class MLP:
                                         epochs=self.__epochs,
                                         validation_split=0.2,
                                         validation_data=(self.__test_image, self.__test_label))
-        self.__plot_history(history)
+        self.__plot_history(history.history['binary_accuracy'], history.history['val_binary_accuracy'],
+                            history.history['loss'], history.history['val_loss'])
 
         self.__after_train_processing()
 
@@ -146,14 +147,10 @@ class MLP:
             print(f"[__get_predicted_value] index {index} is invalid")
         return self.__get_predicted_class_index(self.__main_prediction[index])
 
-    def __plot_history(self, history):
+    def __plot_history(self, acc, val_acc, loss, val_loss):
         if not self.__with_info:
             return
         print("[__plot_history] get values")
-        acc = history.history['binary_accuracy']
-        val_acc = history.history['val_binary_accuracy']
-        loss = history.history['loss']
-        val_loss = history.history['val_loss']
         epochs_range = range(self.__epochs)
 
         print("[__plot_history] plot accuracy")
