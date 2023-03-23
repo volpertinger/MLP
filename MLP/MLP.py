@@ -3,7 +3,7 @@ import string
 import tensorflow_datasets as tfds
 import numpy as np
 import matplotlib.pyplot as plt
-import ModelSettings as s
+from MLP import ModelSettings as ms
 from tensorflow_datasets.core import visualization
 from tensorflow import keras
 from keras import layers
@@ -40,24 +40,24 @@ class MLP:
         self.__main_save_filename = main_save_path
         self.__main_model = Sequential([
             layers.Rescaling(1. / 255, input_shape=self.__train_image_3d[0].shape),
-            layers.Conv2D(s.L1, image_dimension, padding='same', activation=s.COMMON_ACTIVATION),
+            layers.Conv2D(ms.L1, image_dimension, padding='same', activation=ms.COMMON_ACTIVATION),
             layers.MaxPooling2D(),
-            layers.Conv2D(s.L2, image_dimension, padding='same', activation=s.COMMON_ACTIVATION),
+            layers.Conv2D(ms.L2, image_dimension, padding='same', activation=ms.COMMON_ACTIVATION),
             layers.MaxPooling2D(),
-            layers.Conv2D(s.L3, image_dimension, padding='same', activation=s.COMMON_ACTIVATION),
+            layers.Conv2D(ms.L3, image_dimension, padding='same', activation=ms.COMMON_ACTIVATION),
             layers.MaxPooling2D(),
             layers.Flatten(),
-            layers.Dense(s.L4),
-            layers.Dense(labels_number, activation=s.LAST_ACTIVATION)
+            layers.Dense(ms.L4),
+            layers.Dense(labels_number, activation=ms.LAST_ACTIVATION)
         ])
 
         # spare model
         if use_spare and not (spare_save_path is None):
             self.__spare_save_filename = spare_save_path
             self.__spare_model = MLPClassifier(
-                hidden_layer_sizes=(s.L1, s.L2, s.L3, s.L4),
-                activation=s.COMMON_ACTIVATION,
-                solver=s.SOLVER,
+                hidden_layer_sizes=(ms.L1, ms.L2, ms.L3, ms.L4),
+                activation=ms.COMMON_ACTIVATION,
+                solver=ms.SOLVER,
                 learning_rate="constant",
                 learning_rate_init=learning_rate,
                 early_stopping=True,

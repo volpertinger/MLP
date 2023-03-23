@@ -1,4 +1,4 @@
-from MLP.dataset_utils import MLP
+from MLP.MLP import MLP
 
 
 def start_test_input(dataset: MLP):
