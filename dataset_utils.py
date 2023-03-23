@@ -1,3 +1,4 @@
+import pickle
 import string
 
 import tensorflow_datasets as tfds
@@ -8,14 +9,13 @@ from tensorflow import keras
 from keras import layers
 from keras.models import Sequential
 from keras.optimizers import Adam
+from sklearn.neural_network import MLPClassifier
 
 
-# TODO: spare MLP
-# TODO: отдельный сейв на spare
 class MLP:
 
     def __init__(self, dataset: string, epochs: int, learning_rate: float, batch_size: int, main_save_path: string,
-                 with_info: bool = True, use_spare: bool = False, spare_save_path: string = None):
+                 image_dimension: int, with_info: bool = True, use_spare: bool = False, spare_save_path: string = None):
         self.__ds, self.__ds_info = tfds.load(dataset, split=['train', 'test'], with_info=True)
         self.__train = self.__ds[0]
         self.__test = self.__ds[1]
@@ -23,10 +23,13 @@ class MLP:
         # в numpy для разделения входа и выхода
         train_numpy = np.vstack(tfds.as_numpy(self.__train))
         test_numpy = np.vstack(tfds.as_numpy(self.__test))
-        self.__train_image = np.array(list(map(lambda x: x[0]['image'], train_numpy)))
+        self.__train_image_3d = np.array(list(map(lambda x: x[0]['image'], train_numpy)))
         self.__train_label = np.array(list(map(lambda x: x[0]['label'], train_numpy)))
-        self.__test_image = np.array(list(map(lambda x: x[0]['image'], test_numpy)))
+        self.__test_image_3d = np.array(list(map(lambda x: x[0]['image'], test_numpy)))
         self.__test_label = np.array(list(map(lambda x: x[0]['label'], test_numpy)))
+        # для spare метода нужен именно 2д массив
+        self.__train_image_2d = self.__transform_3d_to_2d(self.__train_image_3d)
+        self.__test_image_2d = self.__transform_3d_to_2d(self.__test_image_3d)
 
         # корректная разбивка выхода для работы модели
         labels_number = len(np.unique(self.__train_label))
@@ -36,12 +39,12 @@ class MLP:
         # main model
         self.__main_save_filename = main_save_path
         self.__main_model = Sequential([
-            layers.Rescaling(1. / 255, input_shape=self.__train_image[0].shape),
-            layers.Conv2D(16, 3, padding='same', activation='relu'),
+            layers.Rescaling(1. / 255, input_shape=self.__train_image_3d[0].shape),
+            layers.Conv2D(16, image_dimension, padding='same', activation='relu'),
             layers.MaxPooling2D(),
-            layers.Conv2D(32, 3, padding='same', activation='relu'),
+            layers.Conv2D(32, image_dimension, padding='same', activation='relu'),
             layers.MaxPooling2D(),
-            layers.Conv2D(64, 3, padding='same', activation='relu'),
+            layers.Conv2D(64, image_dimension, padding='same', activation='relu'),
             layers.MaxPooling2D(),
             layers.Flatten(),
             layers.Dense(128),
@@ -51,18 +54,15 @@ class MLP:
         # spare model
         if use_spare and not (spare_save_path is None):
             self.__spare_save_filename = spare_save_path
-            self.__spare_model = Sequential([
-                layers.Rescaling(1. / 255, input_shape=self.__train_image[0].shape),
-                layers.Conv2D(16, 3, padding='same', activation='relu'),
-                layers.MaxPooling2D(),
-                layers.Conv2D(32, 3, padding='same', activation='relu'),
-                layers.MaxPooling2D(),
-                layers.Conv2D(64, 3, padding='same', activation='relu'),
-                layers.MaxPooling2D(),
-                layers.Flatten(),
-                layers.Dense(128),
-                layers.Dense(labels_number, activation='sigmoid')
-            ])
+            self.__spare_model = MLPClassifier(
+                hidden_layer_sizes=(16, 32, 64, 128),
+                activation="relu",
+                solver="adam",
+                learning_rate="constant",
+                learning_rate_init=learning_rate,
+                early_stopping=True,
+                max_iter=epochs
+            )
         else:
             self.__spare_save_filename = None
             self.__spare_model = None
@@ -74,11 +74,33 @@ class MLP:
         self.__with_info = with_info
 
         self.__main_prediction = None
+        self.__spare_prediction = None
         self.__load_weights()
 
         self.__print_models_summary()
         self.__show_benchmark()
         self.__show_examples()
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # Static
+    # ------------------------------------------------------------------------------------------------------------------
+    @staticmethod
+    def __get_predicted_class_index(arr):
+        class_index = 0
+        element_prediction = 0
+        current_index = 0
+        for el in arr:
+            if el > element_prediction:
+                element_prediction = el
+                class_index = current_index
+            current_index += 1
+        return class_index
+
+    @staticmethod
+    def __transform_3d_to_2d(set_3d):
+        x, y, z, d = set_3d.shape
+        d2_train_dataset = set_3d.reshape((x, y * z * d))
+        return d2_train_dataset
 
     # ------------------------------------------------------------------------------------------------------------------
     # Private
@@ -91,14 +113,15 @@ class MLP:
 
     def __after_train_processing(self):
         print("[__after_train_processing] started")
-        self.__main_prediction = self.__main_model.predict(self.__test_image)
+        self.__main_prediction = self.__main_model.predict(self.__test_image_3d)
+        self.__spare_prediction = self.__spare_model.predict(self.__test_image_2d)
         if not self.__trained:
             print("[__after_train_processing] main save started")
             self.__main_model.save_weights(filepath=self.__main_save_filename)
             print("[__after_train_processing] main save ended")
             if self.__spare_model is not None:
                 print("[__after_train_processing] spare save started")
-                self.__spare_model.save_weights(filepath=self.__spare_save_filename)
+                pickle.dump(self.__spare_model, open(self.__spare_save_filename, "wb"))
                 print("[__after_train_processing] spare save ended")
         self.__is_trained = True
         print("[__after_train_processing] finished")
@@ -107,6 +130,8 @@ class MLP:
         print("[__load_weights] try to load weights")
         try:
             if self.__main_model.load_weights(filepath=self.__main_save_filename) is not None:
+                if self.__spare_model is not None:
+                    self.__spare_model = pickle.load(open(self.__spare_save_filename, "rb"))
                 print("[__load_weights] loaded successfully")
                 self.__trained = True
                 self.__after_train_processing()
@@ -120,65 +145,69 @@ class MLP:
                                   optimizer=Adam(learning_rate=self.__learning_rate),
                                   metrics=['binary_accuracy'])
 
-        history = self.__main_model.fit(self.__train_image,
+        history = self.__main_model.fit(self.__train_image_3d,
                                         self.__train_label,
                                         batch_size=self.__batch_size,
                                         verbose=1,
                                         epochs=self.__epochs,
                                         validation_split=0.2,
-                                        validation_data=(self.__test_image, self.__test_label))
-        self.__plot_history(history.history['binary_accuracy'], history.history['val_binary_accuracy'],
-                            history.history['loss'], history.history['val_loss'])
+                                        validation_data=(self.__test_image_3d, self.__test_label))
+        self.__plot_history_compare(history.history['binary_accuracy'], history.history['val_binary_accuracy'],
+                                    history.history['loss'], history.history['val_loss'])
 
     def __train_spare(self):
         if self.__spare_model is None:
             return
-        self.__spare_model.compile(loss='binary_crossentropy',
-                                   optimizer=Adam(learning_rate=self.__learning_rate),
-                                   metrics=['binary_accuracy'])
-
-        history = self.__spare_model.fit(self.__train_image,
-                                         self.__train_label,
-                                         batch_size=self.__batch_size,
-                                         verbose=1,
-                                         epochs=self.__epochs,
-                                         validation_split=0.2,
-                                         validation_data=(self.__test_image, self.__test_label))
-        self.__plot_history(history.history['binary_accuracy'], history.history['val_binary_accuracy'],
-                            history.history['loss'], history.history['val_loss'])
+        self.__spare_model.fit(self.__train_image_2d, self.__train_label)
+        self.__plot_history(self.__spare_model.loss_curve_, self.__spare_model.validation_scores_)
 
     def __train_model(self):
+        print("[__train_model] start main train")
         self.__train_main()
+        print("[__train_model] start spare train")
         self.__train_spare()
+        print("[__train_model] start after train")
         self.__after_train_processing()
+        print("[__train_model] finished")
 
-    @staticmethod
-    def __get_predicted_class_index(arr):
-        class_index = 0
-        element_prediction = 0
-        current_index = 0
-        for el in arr:
-            if el > element_prediction:
-                element_prediction = el
-                class_index = current_index
-            current_index += 1
-        return class_index
-
-    def __get_predicted_value(self, index):
-        if self.__main_prediction is None:
+    def __get_predicted_value(self, prediction, index):
+        if prediction is None:
             print("[__get_predicted_value] __prediction is None")
             return
-        if index >= len(self.__main_prediction) or index < 0:
+        if index >= len(prediction) or index < 0:
             print(f"[__get_predicted_value] index {index} is invalid")
-        return self.__get_predicted_class_index(self.__main_prediction[index])
+        return self.__get_predicted_class_index(prediction[index])
 
-    def __plot_history(self, acc, val_acc, loss, val_loss):
+    def __plot_history(self, acc=None, loss=None):
         if not self.__with_info:
             return
         print("[__plot_history] get values")
         epochs_range = range(self.__epochs)
 
         print("[__plot_history] plot accuracy")
+
+        plt.figure(figsize=(8, 8))
+        plt.subplot(1, 2, 1)
+        plt.plot(epochs_range, acc)
+        plt.legend(loc='lower right')
+        plt.title('Training Accuracy')
+
+        print("[__plot_history] plot loss")
+        plt.subplot(1, 2, 2)
+        plt.plot(epochs_range, loss)
+        plt.legend(loc='upper right')
+        plt.title('Training Loss')
+
+        plt.show()
+
+    def __plot_history_compare(self, acc, val_acc, loss, val_loss):
+        if not self.__with_info:
+            return
+        print("[__plot_history_compare] get values")
+        epochs_range = range(self.__epochs)
+
+        print("[__plot_history_compare] plot accuracy")
+
         plt.figure(figsize=(8, 8))
         plt.subplot(1, 2, 1)
         plt.plot(epochs_range, acc, label='Training Accuracy')
@@ -186,12 +215,13 @@ class MLP:
         plt.legend(loc='lower right')
         plt.title('Training and Validation Accuracy')
 
-        print("[__plot_history] plot loss")
+        print("[__plot_history_compare] plot loss")
         plt.subplot(1, 2, 2)
         plt.plot(epochs_range, loss, label='Training Loss')
         plt.plot(epochs_range, val_loss, label='Validation Loss')
         plt.legend(loc='upper right')
         plt.title('Training and Validation Loss')
+
         plt.show()
 
     def __print_models_summary(self):
@@ -202,7 +232,7 @@ class MLP:
         if self.__spare_model is None:
             return
         print("[__print_models_summary] spare model")
-        self.__spare_model.summary()
+        print(self.__spare_model.get_params())
 
     def __show_benchmark(self):
         if not self.__with_info:
@@ -222,30 +252,13 @@ class MLP:
     def get_info(self):
         return self.__ds_info
 
-    def get_data_train_numpy(self):
-        return tfds.as_numpy(self.__train)
-
-    def get_data_test_numpy(self):
-        return tfds.as_numpy(self.__test)
-
-    def get_data_train_frame(self):
-        return tfds.as_dataframe(self.__train, self.__ds_info)
-
-    def get_data_test_frame(self):
-        return tfds.as_dataframe(self.__test, self.__ds_info)
-
-    def get_data_train_list(self):
-        return list(self.__train)
-
-    def get_data_test_list(self):
-        return list(self.__test)
-
     def get_test_length(self):
         return len(self.__test)
 
     def predict(self, index):
-        predicted_value = self.__get_predicted_value(index)
-        print(f"[predict] predicted value is {predicted_value}")
+        predicted_main = self.__get_predicted_value(self.__main_prediction, index)
+        predicted_spare = self.__get_predicted_value(self.__spare_prediction, index)
+        print(f"[predict] main predicted value is {predicted_main}; spare predicted value is {predicted_spare}")
         self.__show_image(index)
 
     def train(self):
