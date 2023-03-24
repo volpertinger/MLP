@@ -1,6 +1,6 @@
 import os
 import UserSettings as us
-from MLP.MLP import MLP
+from model.MLP import MLP
 from processing_utils import start_test_input
 
 if __name__ == '__main__':
