@@ -3,7 +3,7 @@ import string
 import tensorflow_datasets as tfds
 import numpy as np
 import matplotlib.pyplot as plt
-from MLP import ModelSettings as ms
+import model.ModelSettings as ms
 from tensorflow_datasets.core import visualization
 from tensorflow import keras
 from keras import layers
@@ -40,14 +40,10 @@ class MLP:
         self.__main_save_filename = main_save_path
         self.__main_model = Sequential([
             layers.Rescaling(1. / 255, input_shape=self.__train_image_3d[0].shape),
-            layers.Conv2D(ms.L1, image_dimension, padding='same', activation=ms.COMMON_ACTIVATION),
-            layers.MaxPooling2D(),
-            layers.Conv2D(ms.L2, image_dimension, padding='same', activation=ms.COMMON_ACTIVATION),
-            layers.MaxPooling2D(),
-            layers.Conv2D(ms.L3, image_dimension, padding='same', activation=ms.COMMON_ACTIVATION),
+            layers.Conv2D(ms.L1, image_dimension, padding='same', activation=ms.COMMON_ACTIVATION_MAIN),
             layers.MaxPooling2D(),
             layers.Flatten(),
-            layers.Dense(ms.L4),
+            layers.Dense(ms.L2),
             layers.Dense(labels_number, activation=ms.LAST_ACTIVATION)
         ])
 
@@ -55,8 +51,8 @@ class MLP:
         if use_spare and not (spare_save_path is None):
             self.__spare_save_filename = spare_save_path
             self.__spare_model = MLPClassifier(
-                hidden_layer_sizes=(ms.L1, ms.L2, ms.L3, ms.L4),
-                activation=ms.COMMON_ACTIVATION,
+                hidden_layer_sizes=(ms.L1, ms.L2),
+                activation=ms.COMMON_ACTIVATION_SPARE,
                 solver=ms.SOLVER,
                 learning_rate="constant",
                 learning_rate_init=learning_rate,
@@ -159,15 +155,18 @@ class MLP:
         if self.__spare_model is None:
             return
         self.__spare_model.fit(self.__train_image_2d, self.__train_label)
-        self.__plot_history(self.__spare_model.loss_curve_, self.__spare_model.validation_scores_)
+        self.__plot_history(self.__spare_model.validation_scores_, self.__spare_model.loss_curve_)
 
-    def __train_model(self):
-        print("[__train_model] start main train")
-        self.__train_main()
-        print("[__train_model] start spare train")
-        self.__train_spare()
-        print("[__train_model] start after train")
-        self.__after_train_processing()
+    def __train_model(self, train_main=True, train_spare=True):
+        if train_main:
+            print("[__train_model] start main train")
+            self.__train_main()
+        if train_spare:
+            print("[__train_model] start spare train")
+            self.__train_spare()
+        if train_spare or train_main:
+            print("[__train_model] start after train")
+            self.__after_train_processing()
         print("[__train_model] finished")
 
     def __get_predicted_value(self, prediction, index):
@@ -178,11 +177,14 @@ class MLP:
             print(f"[__get_predicted_value] index {index} is invalid")
         return self.__get_predicted_class_index(prediction[index])
 
-    def __plot_history(self, acc=None, loss=None):
+    def __plot_history(self, acc, loss):
         if not self.__with_info:
             return
+        if acc is None or loss is None:
+            print("[__plot_history] acc or loss is None. Can`t plot")
+            return
         print("[__plot_history] get values")
-        epochs_range = range(self.__epochs)
+        epochs_range = range(min(self.__epochs, len(acc), len(loss)))
 
         print("[__plot_history] plot accuracy")
 
@@ -203,8 +205,11 @@ class MLP:
     def __plot_history_compare(self, acc, val_acc, loss, val_loss):
         if not self.__with_info:
             return
+        if acc is None or loss is None or val_acc is None or val_loss is None:
+            print("[__plot_history_compare] acc or loss is None. Can`t plot")
+            return
         print("[__plot_history_compare] get values")
-        epochs_range = range(self.__epochs)
+        epochs_range = range(min(self.__epochs, len(acc), len(loss), len(val_acc), len(val_loss)))
 
         print("[__plot_history_compare] plot accuracy")
 
@@ -265,3 +270,13 @@ class MLP:
         if self.__trained:
             return
         self.__train_model()
+
+    def train_main(self):
+        if self.__main_model is None or self.__is_trained:
+            return
+        self.__train_model(train_spare=False)
+
+    def train_spare(self):
+        if self.__spare_model is None or self.__trained:
+            return
+        self.__train_model(train_main=False)
